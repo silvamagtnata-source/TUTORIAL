@@ -1,0 +1,58 @@
+name: Criar PC Virtual Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  criar-vm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Criar PC Virtual
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            RESOURCE_GROUP="MeuPC-RG"
+            LOCATION="eastus"
+            VM_NAME="MeuPC-Windows"
+            ADMIN_USER="pcadmin"
+
+            az group create \
+              --name "$RESOURCE_GROUP" \
+              --location "$LOCATION"
+
+            az vm create \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$VM_NAME" \
+              --image "MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition:latest" \
+              --size "Standard_B2s" \
+              --admin-username "$ADMIN_USER" \
+              --admin-password "${{ secrets.VM_ADMIN_PASSWORD }}" \
+              --authentication-type password \
+              --public-ip-sku Standard \
+              --nsg-rule RDP
+
+            echo "=== PC CRIADO ==="
+
+            IP=$(az vm show \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$VM_NAME" \
+              --show-details \
+              --query publicIps \
+              --output tsv)
+
+            echo "IP DO PC: $IP"
+            echo "USUARIO: $ADMIN_USER"
+            echo "Use a senha armazenada no Secret VM_ADMIN_PASSWORD."
